@@ -1,10 +1,12 @@
+import os
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 
-BOT_TOKEN = '7799327813:AAEnqoNMh-FZHaT8tK0AAwCvfda2RvglTho'
+# قراءة توكن البوت من متغير البيئة
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text
@@ -13,20 +15,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("تم استلام الرابط! جاري استخراج الصور...")
 
         try:
+            # جلب محتوى الصفحة
             response = requests.get(url)
             response.raise_for_status()
             soup = BeautifulSoup(response.text, 'html.parser')
 
+            # استخراج كل روابط الصور <img src="...">
             image_tags = soup.find_all('img')
             image_urls = []
 
             for img in image_tags:
                 src = img.get('src')
                 if src:
-                    # تصحيح روابط تبدأ بـ //
-                    if src.startswith("//"):
-                        src = "https:" + src
-                    full_url = urljoin(url, src)
+                    full_url = urljoin(url, src)  # لحل الروابط النسبية
                     image_urls.append(full_url)
 
             if not image_urls:
@@ -34,15 +35,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             else:
                 await update.message.reply_text(f"تم العثور على {len(image_urls)} صورة. يتم الإرسال...")
 
-                print("الصور المستخرجة:")
+                # إرسال جميع الصور (يمكن تعديل العدد حسب الحاجة)
                 for img_url in image_urls:
-                    print(img_url)
-
-                for img_url in image_urls:
-                    try:
-                        await update.message.reply_photo(img_url)
-                    except Exception as e:
-                        print(f"فشل إرسال الصورة: {img_url} — {e}")
+                    await update.message.reply_photo(img_url)
 
         except Exception as e:
             await update.message.reply_text(f"حدث خطأ أثناء معالجة الرابط:\n{str(e)}")
